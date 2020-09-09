@@ -1,8 +1,9 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Networking;
 
-public class FPSShootingControls : MonoBehaviour
+public class FPSShootingControls : NetworkBehaviour
 {
 
     private Camera mainCam;
@@ -11,11 +12,13 @@ public class FPSShootingControls : MonoBehaviour
 
 
     [SerializeField]
-    private GameObject concrete_Impact;
+    private GameObject concrete_Impact, blood_Impact;
+
+    public float damageAmount = 25f;
 
     void Start()
     {
-        mainCam = Camera.main;
+        mainCam = transform.Find("FPS VIEW").Find("FPS Camera").GetComponent<Camera>();
         
     }
 
@@ -34,9 +37,19 @@ public class FPSShootingControls : MonoBehaviour
                 // print("target hit" + hit.collider.gameObject.name);
                 // print(hit.transform.position);
                 // print(hit.point);
-                Instantiate(concrete_Impact, hit.point, Quaternion.LookRotation(hit.normal));
+                if(hit.transform.tag == "Enemy") {
+                    CmdDealDamage(hit.transform.gameObject, hit.point, hit.normal);
+                } else {
+                    Instantiate(concrete_Impact, hit.point, Quaternion.LookRotation(hit.normal));
+                }
             }
         }
+
+    }
+    [Command]
+    void CmdDealDamage(GameObject obj, Vector3 pos, Vector3 rotation) {
+        obj.GetComponent<PlayerHealth>().TakeDamage(damageAmount);
+        Instantiate(blood_Impact, pos, Quaternion.LookRotation(rotation));
 
     }
 }

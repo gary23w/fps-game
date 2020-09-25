@@ -13,14 +13,14 @@ public class FPSMouseLooker : MonoBehaviour
 
 
     private float sensitivity_X = 1.5f;
-        private float sensitivity_y = 1.5f;
+    private float sensitivity_y = 1.5f;
 
     private float rotation_X, rotation_Y;
 
     private float minimum_X = -360f;
     private float maximum_X = 360f;
 
-    private float minimum_Y = -60f;
+    private float minimum_Y = -13f;
     private float maximum_Y = 60f;
 
 

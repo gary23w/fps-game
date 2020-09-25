@@ -1,7 +1,8 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Networking;
+using Mirror;
+using UnityEngine.AI;
 
 public class FPScontroller : NetworkBehaviour
 {
@@ -9,11 +10,10 @@ public class FPScontroller : NetworkBehaviour
    private Transform firstPerson_Camera;
    private Vector3 firstPerson_view_rotation = Vector3.zero;
    public float walkSpeed = 6.75f;
-   public float runSpeed = 10f;
+   public float runSpeed = 20f;
    public float crouchSpeed = 4f;
    public float jumpSpeed = 8f;
    public float gravity = 20f;
-
    private float speed;
 
    private bool is_moving, is_grounded, is_crouching;
@@ -26,7 +26,7 @@ public class FPScontroller : NetworkBehaviour
 
    private bool limitDiagonalSpeed = true;
 
-   private float antiBumpFactor = 0.75f;
+   private float antiBumpFactor = 0.1f;
 
    private CharacterController charController;
 
@@ -53,9 +53,11 @@ public class FPScontroller : NetworkBehaviour
    private FPSHandsWeapon current_hands_Weapon;
 
    public GameObject playerHolder, weaponsHolder;
+  
    public GameObject[] weapons_FPS;
 
    public Camera mainCam;
+   public float npcDamage = 25;
    public FPSMouseLooker[] mouseLooks;
 
    private Color[] playerSkins = new Color[] {
@@ -65,56 +67,69 @@ public class FPScontroller : NetworkBehaviour
    
    };
    public Renderer playererRendered;
+   public GameObject ak47Back;
+   public GameObject m4a1Back;
+
+   public FloatVariable isShooting;
+   public FloatVariable ammo;
+   public GameObject reloadNoification;
+
+
+   bool isFpsActive = false;
     void Start()
     {
         firstPerson_view = transform.Find("FPS VIEW").transform;
         charController = GetComponent<CharacterController> ();
         speed = walkSpeed;
         is_moving = false;
-
+        isShooting.value = 1;
+        reloadNoification = GameObject.Find("ReloadNotification");
+        reloadNoification.GetComponent<Animator>().enabled = false; 
+        reloadNoification.transform.localScale = Vector3.zero;
         rayDistance = charController.height * 0.5f + charController.radius;
         default_controllerHeight = charController.height;
         default_CamPos = firstPerson_view.localPosition;
-
         playerAnimations = GetComponent<FPSPlayerAnimations>();
-
         weapon_Manager.weapons[0].SetActive(true);
         current_Weapon = weapon_Manager.weapons[0].GetComponent<FPSWeapon>();
-
         handsWeapon_Manager.weapons[0].SetActive(true);
-        current_hands_Weapon = handsWeapon_Manager.weapons[0].GetComponent<FPSHandsWeapon> ();        
-
-
-        if(isLocalPlayer) {
-            playerHolder.layer = LayerMask.NameToLayer ("Player");
-
-            foreach (Transform child in playerHolder.transform) {
-                child.gameObject.layer = LayerMask.NameToLayer ("Player");
-            }
-            for(int i = 0; i < weapons_FPS.Length; i++) {
-                weapons_FPS [i].layer = LayerMask.NameToLayer("Player");
-            }
-            weaponsHolder.layer = LayerMask.NameToLayer ("Enemy");
-
-            foreach(Transform child in weaponsHolder.transform) {
-                child.gameObject.layer = LayerMask.NameToLayer("Enemy");
-            }
+        if(isFpsActive) {
+            current_hands_Weapon = handsWeapon_Manager.weapons[0].GetComponent<FPSHandsWeapon> (); 
         }
-        if(!isLocalPlayer) {
-            playerHolder.layer = LayerMask.NameToLayer ("Enemy");
+               
 
-            foreach (Transform child in playerHolder.transform) {
-                child.gameObject.layer = LayerMask.NameToLayer ("Enemy");
-            }
-            for(int i = 0; i < weapons_FPS.Length; i++) {
-                weapons_FPS [i].layer = LayerMask.NameToLayer("Enemy");
-            }
-            weaponsHolder.layer = LayerMask.NameToLayer ("Player");
 
-            foreach(Transform child in weaponsHolder.transform) {
-                child.gameObject.layer = LayerMask.NameToLayer("Player");
-            }
-        }
+        // if(isLocalPlayer) {
+        //     playerHolder.layer = LayerMask.NameToLayer ("Player");
+
+        //     foreach (Transform child in playerHolder.transform) {
+        //         child.gameObject.layer = LayerMask.NameToLayer ("Player");
+        //     }
+        //     for(int i = 0; i < weapons_FPS.Length; i++) {
+        //         weapons_FPS [i].layer = LayerMask.NameToLayer("Player");
+        //     }
+        //     weaponsHolder.layer = LayerMask.NameToLayer ("Enemy");
+
+        //     foreach(Transform child in weaponsHolder.transform) {
+        //         child.gameObject.layer = LayerMask.NameToLayer("Enemy");
+        //     }
+
+        // }
+        // if(!isLocalPlayer) {
+        //     playerHolder.layer = LayerMask.NameToLayer ("Enemy");
+
+        //     foreach (Transform child in playerHolder.transform) {
+        //         child.gameObject.layer = LayerMask.NameToLayer ("Enemy");
+        //     }
+        //     for(int i = 0; i < weapons_FPS.Length; i++) {
+        //         weapons_FPS [i].layer = LayerMask.NameToLayer("Enemy");
+        //     }
+        //     weaponsHolder.layer = LayerMask.NameToLayer ("Player");
+
+        //     foreach(Transform child in weaponsHolder.transform) {
+        //         child.gameObject.layer = LayerMask.NameToLayer("Player");
+        //     }
+        // }
 
         if(!isLocalPlayer) {
             for(int i = 0; i < mouseLooks.Length; i++) {
@@ -125,8 +140,9 @@ public class FPScontroller : NetworkBehaviour
         mainCam.gameObject.SetActive(false);
 
         if(!isLocalPlayer) {
+            tag = "Enemy";
             for(int i = 0; i < playererRendered.materials.Length; i++) {
-                playererRendered.materials[i].color = playerSkins[i];
+                /// RANDOM SKIN IN FUTURE;
             }
         }
     }
@@ -145,13 +161,10 @@ public class FPScontroller : NetworkBehaviour
         if(!isLocalPlayer) {
             return;
         }
-
         PlayerMovement();
     }
 
     void PlayerMovement() {
-
-
         if(Input.GetKey (KeyCode.W) || Input.GetKey (KeyCode.S)) {
             if(Input.GetKey (KeyCode.W)) {
                 inputY_Set = 1f;
@@ -261,7 +274,7 @@ public class FPScontroller : NetworkBehaviour
                     StopCoroutine(MoveCameraCrouch());
                 } 
             } else {
-                moveDirection.y = jumpSpeed;
+                moveDirection.y = jumpSpeed + 7;
             }
         }
 
@@ -272,35 +285,66 @@ public class FPScontroller : NetworkBehaviour
         if(is_crouching && charController.velocity.magnitude > 0f) {
             playerAnimations.PlayerCrouchWalk(charController.velocity.magnitude);
         }
-
         //shooting stuffz
+        if(isShooting.value == 1) {
+                if(Input.GetMouseButtonDown(0) && Time.time > nextTimeToFire) {
+                     nextTimeToFire = Time.time + 1f / fireRate;
+                        if(is_crouching) {
+                            playerAnimations.Shoot(false);
+                        } else {
+                            playerAnimations.Shoot(true);
+                        }
 
-        if(Input.GetMouseButtonDown(0) && Time.time > nextTimeToFire) {
-            nextTimeToFire = Time.time + 1f / fireRate;
+                        if(isLocalPlayer){
+                            current_Weapon.Shoot();
+                            if(isFpsActive) {
+                                    current_hands_Weapon.Shoot();
+                            }
+                            
+                        } else {
+                                current_Weapon.Shoot();
+                                if(isFpsActive) {
+                                    current_hands_Weapon.Shoot();
+                                }
+                                
+                        }
 
-            if(is_crouching) {
-                playerAnimations.Shoot(false);
-            } else {
-                playerAnimations.Shoot(true);
-            }
+                 } 
 
-            current_Weapon.Shoot();
-            current_hands_Weapon.Shoot();
         }
+
+
+
+        
+
         if(Input.GetKeyDown(KeyCode.R)) {
             playerAnimations.Reload();
-            current_hands_Weapon.Reload();
+            reloadNoification.transform.localScale = Vector3.zero;
+            reloadNoification.GetComponent<Animator>().enabled = false;
+            isShooting.value = 1;
+            if(isFpsActive) {
+                current_hands_Weapon.Reload();
+            }
+                PlayerPrefs.SetInt("DEAGLE", 20);
+                PlayerPrefs.SetInt("AK47", 20);
+                PlayerPrefs.SetInt("M4A1", 20);
         }
     }
     void SelectWeapon() {
         if(Input.GetKeyDown(KeyCode.Alpha1)) {
+            ak47Back.SetActive(true);
+            m4a1Back.SetActive(true);
+            ammo.value = PlayerPrefs.GetInt("DEAGLE");
+
             if(!handsWeapon_Manager.weapons [0].activeInHierarchy) {
                 for(int i = 0; i < handsWeapon_Manager.weapons.Length; i++) {
                     handsWeapon_Manager.weapons[i].SetActive(false);
                 }
                 current_hands_Weapon = null;
                 handsWeapon_Manager.weapons[0].SetActive(true);
-                current_hands_Weapon = handsWeapon_Manager.weapons[0].GetComponent<FPSHandsWeapon>();  
+                if(isFpsActive) {
+                       current_hands_Weapon = handsWeapon_Manager.weapons[0].GetComponent<FPSHandsWeapon>(); 
+                } 
           }
             if(!weapon_Manager.weapons [0].activeInHierarchy) {
                 for(int i = 0; i < weapon_Manager.weapons.Length; i++) {
@@ -315,15 +359,21 @@ public class FPScontroller : NetworkBehaviour
             }
         }
         if(Input.GetKeyDown(KeyCode.Alpha2)) {
+            ak47Back.SetActive(false);
+            m4a1Back.SetActive(true);
+            ammo.value = PlayerPrefs.GetInt("AK47");
             if(!handsWeapon_Manager.weapons [1].activeInHierarchy) {
                 for(int i = 0; i < handsWeapon_Manager.weapons.Length; i++) {
                     handsWeapon_Manager.weapons[i].SetActive(false);
                 }
                 current_hands_Weapon = null;
                 handsWeapon_Manager.weapons[1].SetActive(true);
-                current_hands_Weapon = handsWeapon_Manager.weapons[1].GetComponent<FPSHandsWeapon>();  
-          }
-            if(!weapon_Manager.weapons [1].activeInHierarchy) {
+                if(isFpsActive) {
+                    current_hands_Weapon = handsWeapon_Manager.weapons[1].GetComponent<FPSHandsWeapon>();  
+                }
+                
+                }
+                if(!weapon_Manager.weapons [1].activeInHierarchy) {
                 for(int i = 0; i < weapon_Manager.weapons.Length; i++) {
                     weapon_Manager.weapons[i].SetActive(false);
                 }
@@ -336,19 +386,25 @@ public class FPScontroller : NetworkBehaviour
             }
         }
         if(Input.GetKeyDown(KeyCode.Alpha3)) {
+            ak47Back.SetActive(true);
+            m4a1Back.SetActive(false);
+            ammo.value = PlayerPrefs.GetInt("M4A1");
+
             if(!handsWeapon_Manager.weapons [2].activeInHierarchy) {
                 for(int i = 0; i < handsWeapon_Manager.weapons.Length; i++) {
                     handsWeapon_Manager.weapons[i].SetActive(false);
                 }
                 current_hands_Weapon = null;
                 handsWeapon_Manager.weapons[2].SetActive(true);
-                current_hands_Weapon = handsWeapon_Manager.weapons[2].GetComponent<FPSHandsWeapon>();  
+                if(isFpsActive) {
+                     current_hands_Weapon = handsWeapon_Manager.weapons[2].GetComponent<FPSHandsWeapon>();  
+                }
+               
           }
             if(!weapon_Manager.weapons [2].activeInHierarchy) {
                 for(int i = 0; i < weapon_Manager.weapons.Length; i++) {
                     weapon_Manager.weapons[i].SetActive(false);
                 }
-
                 current_Weapon = null;
                 weapon_Manager.weapons[2].SetActive(true);
                 current_Weapon = weapon_Manager.weapons[2].GetComponent<FPSWeapon> ();
@@ -357,5 +413,8 @@ public class FPScontroller : NetworkBehaviour
             }
         }
 
+    }
+    public void TeleportPlayer() {
+        transform.localPosition = new Vector3(0, 0, 0);
     }
 }

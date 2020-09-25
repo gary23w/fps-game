@@ -5,13 +5,14 @@ using UnityEngine;
 public class FPSWeapon : MonoBehaviour
 {
    private GameObject muzzleFlash;
+   
 
    void Awake() {
        muzzleFlash = transform.Find("MuzzleFlash").gameObject;
        muzzleFlash.SetActive(false);
    }
    public void Shoot(){
-       StartCoroutine(TurnOnMuzzleFlash());
+             StartCoroutine(TurnOnMuzzleFlash());
    }
     IEnumerator TurnOnMuzzleFlash() {
         muzzleFlash.SetActive(true);

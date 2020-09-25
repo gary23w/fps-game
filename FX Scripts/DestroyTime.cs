@@ -4,10 +4,11 @@ using UnityEngine;
 
 public class DestroyTime : MonoBehaviour
 {
-   public float timer = 1f;
+   public float timer = 0.0001f;
     void Start()
     {
         Destroy(gameObject, timer);
+        Debug.Log("Destroying stuff");
         
     }
 

@@ -10,6 +10,7 @@ public class FPSHandsWeapon : MonoBehaviour
     private Animator anim;
     private string SHOOT = "Shoot";
     private string RELOAD = "Reload";
+    bool isFPS = false;
     void Awake()
     {
         muzzleFlash = transform.Find("MuzzleFlash").gameObject;
@@ -21,6 +22,7 @@ public class FPSHandsWeapon : MonoBehaviour
     }
 
     public void Shoot() {
+        if(isFPS) {
         if(audioManager.clip != shootClip) {
             audioManager.clip = shootClip;
         }
@@ -28,6 +30,7 @@ public class FPSHandsWeapon : MonoBehaviour
         StartCoroutine(TurnMuzzleFlashOn());
 
         anim.SetTrigger(SHOOT);
+        }
     }
 
     IEnumerator TurnMuzzleFlashOn() {
